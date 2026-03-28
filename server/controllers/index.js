@@ -315,8 +315,6 @@ const createDog = async (req, res) => {
   //create a new dog withthe info and the dog model
   const newDog = new Dog(dogData);
 
-  console.log(newDog);
-  //
 
   //store the dog in the database using a try/catch
   try {
@@ -344,7 +342,6 @@ const findDog = (req, res) => {
     return res.status(400).json({ error: 'Name is required to perform a search' });
   }
 
-  let dogName = req.query.dogName;
 
   //find the dog by the name that it was searched for and increment the age by 1
   //tell it it to find the dog by adding the dogname as he query in the first param
