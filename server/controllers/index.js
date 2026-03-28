@@ -2,14 +2,16 @@
 const models = require('../models');
 
 // get the Cat model
-const { Cat } = models;
+const { Cat, Dog } = models;
+
+
 
 // Function to handle rendering the index page.
 const hostIndex = async (req, res) => {
   //Start with the name as unknown
   let name = 'unknown';
 
-  try{
+  try {
     /* Cat.findOne() will find a cat that matches the query given to it as the first parameter.
        In this case, we give it an empty object so it will match against any object it finds.
        The second parameter is essentially a filter for the values we want. This works similarly
@@ -19,12 +21,12 @@ const hostIndex = async (req, res) => {
        in descending order (so that more recent things are "on the top"). Since we are only
        finding one, this query will either find the most recent cat if it exists, or nothing.
     */
-    const doc = await Cat.findOne({}, {}, { 
-      sort: {'createdDate': 'descending'}
+    const doc = await Cat.findOne({}, {}, {
+      sort: { 'createdDate': 'descending' }
     }).lean().exec();
 
     //If we did get a cat back, store it's name in the name variable.
-    if(doc) {
+    if (doc) {
       name = doc.name;
     }
   } catch (err) {
@@ -100,9 +102,27 @@ const hostPage3 = (req, res) => {
   res.render('page3');
 };
 
+const hostPage4 = async (req, res) => {
+
+  //go into the db and get all of the dogs that are in there
+  try {
+    
+    //store them all in the docs variable and then render them to the page
+    const docs = await Dog.find({}).lean().exec();
+
+    return res.render('page4', { dogs: docs });
+
+  } catch (err) {
+
+    //if theres an error say that there is an error
+    console.log(err);
+    return res.status(500).json({ error: 'failed to find dogs' });
+  }
+}
+
 // Get name will return the name of the last added cat.
 const getName = async (req, res) => {
-  try{
+  try {
     /* Here we are trying to do the exact same thing we did in host index up
        above. We want to find the most recently added cat. The only difference
        here is that we are using the query .sort() function rather than passing
@@ -110,19 +130,19 @@ const getName = async (req, res) => {
        functionally the same. We are just seeing that it can be written in
        more than one way.
     */
-    const doc = await Cat.findOne({}).sort({'createdDate': 'descending'}).lean().exec();
+    const doc = await Cat.findOne({}).sort({ 'createdDate': 'descending' }).lean().exec();
 
     //If we did get a cat back, store it's name in the name variable.
-    if(doc) {
-      return res.json({name: doc.name});
+    if (doc) {
+      return res.json({ name: doc.name });
     }
-    return res.status(404).json({error: 'No cat found'});
+    return res.status(404).json({ error: 'No cat found' });
   } catch (err) {
     /* If an error occurs, it means something went wrong with the database. We will
        give the user a 500 internal server error status code and an error message.
     */
     console.log(err);
-    return res.status(500).json({error: 'Something went wrong contacting the database'});
+    return res.status(500).json({ error: 'Something went wrong contacting the database' });
   }
 }
 
@@ -258,9 +278,9 @@ const updateLast = (req, res) => {
 
      We can use async/await for this, or just use standard promise .then().catch() syntax.
   */
-  const updatePromise = Cat.findOneAndUpdate({}, {$inc: {'bedsOwned': 1}}, {
+  const updatePromise = Cat.findOneAndUpdate({}, { $inc: { 'bedsOwned': 1 } }, {
     returnDocument: 'after', //Populates doc in the .then() with the version after update
-    sort: {'createdDate': 'descending'}
+    sort: { 'createdDate': 'descending' }
   }).lean().exec();
 
   // If we successfully save/update them in the database, send back the cat's info.
@@ -276,6 +296,80 @@ const updateLast = (req, res) => {
   });
 };
 
+//creates a new dog in the database
+const createDog = async (req, res) => {
+
+  //if the user doesnt enter any of the required fields, return an error
+  if (!req.body.name || !req.body.age || !req.body.breed) {
+
+    return res.status(400).json({ error: 'name, breed and age are all required' });
+  }
+
+  //form the dog data that the user entered in
+  const dogData = {
+    name: `${req.body.name}`,
+    breed: `${req.body.breed}`,
+    age: req.body.age,
+  };
+
+  //create a new dog withthe info and the dog model
+  const newDog = new Dog(dogData);
+
+  console.log(newDog);
+  //
+
+  //store the dog in the database using a try/catch
+  try {
+
+    await newDog.save();
+    return res.status(201).json({
+      name: newDog.name,
+      breed: newDog.breed,
+      age: newDog.age
+    });
+  } catch (err) {
+
+    console.log(err);
+    return res.status(500).json({ error: 'failed to create dog' });
+  }
+
+
+};
+
+//find a dog in the db and increase it's age
+const findDog = (req, res) => {
+
+  //if the user did not add a name to search, return a 400 error
+  if (!req.query.dogName) {
+    return res.status(400).json({ error: 'Name is required to perform a search' });
+  }
+
+  let dogName = req.query.dogName;
+
+  //find the dog by the name that it was searched for and increment the age by 1
+  //tell it it to find the dog by adding the dogname as he query in the first param
+  const updatePromise = Dog.findOneAndUpdate({name: `${req.query.dogName}`}, { $inc: { 'age': 1 } }, {
+    returnDocument: 'after', //Populates doc in the .then() with the version after update
+    sort: { 'createdDate': 'descending' }
+  }).lean().exec();
+
+  // If we successfully save/update them in the database, send back the dogs info.
+  updatePromise.then((doc) => res.json({
+    name: doc.name,
+    breed: doc.breed,
+    age: doc.age
+  }));
+
+  // If something goes wrong saving to the database, log the error and send a message to the client.
+  updatePromise.catch((err) => {
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  });
+
+
+
+};
+
 // A function to send back the 404 page.
 const notFound = (req, res) => {
   res.status(404).render('notFound', {
@@ -289,9 +383,12 @@ module.exports = {
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
   getName,
   setName,
   updateLast,
   searchName,
+  createDog,
+  findDog,
   notFound,
 };
